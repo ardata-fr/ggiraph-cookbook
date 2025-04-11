@@ -1,0 +1,396 @@
+---
+title: "ggiraph and shiny"
+format:
+  revealjs:
+    logo: assets/img/ardata-logo.png
+    theme: [default, custom.scss]
+    footer: "www.ardata.fr"
+    navigation-mode: vertical
+title-slide-attributes:
+    data-background-image: "assets/img/ggiraphlogo.svg"
+    data-background-size: contain
+preload-iframes: true
+---
+
+
+```{r include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(ggiraph)
+theme_set(theme_minimal()+theme(
+    strip.text.x = element_text_interactive(),
+    strip.text.y = element_text_interactive()
+  ))
+set.seed(4393)
+dsmall <- diamonds[sample(nrow(diamonds), 100),]
+dsmall <- dsmall[dsmall$depth < 65,]
+```
+
+# ggiraph {.smaller}
+
+The 'ggiraph' package allows you to create dynamic and interactive graphics:
+
+- dynamic animations and tooltips in HTML documents produced by 'Quarto' or 'R Markdown',
+- **interactive** in 'shiny' applications, where interactions with the *ggiraph* 
+graphic are available as reactive values.
+
+
+The 'ggiraph' package is an extension of 'ggplot2'. To make a shape interactive, use the 'ggplot' functions, but suffix their names with `_interactive`, i.e. `geom_point_interactive()`
+
+
+The package is also a true R graphic (in SVG format), so you should get the 
+same exact output as with your favorite R IDE (if the dimensions are the same).
+
+## Motivations {.smaller}
+
+:::: {.columns}
+
+::: {.column width="45%"}
+
+You want to provide your readers with more information than the usual visual information provided by a graphic. When the user's mouse is over or next to a graphic element, you want to :
+
+- display a tooltip
+- animate the element(s)
+
+:::
+
+::: {.column width="55%"}
+
+**OR** You want to enable users of a 'shiny' application to select graphical elements; for example, you could make the points of a scatter diagram selectable and available as a **reactive input**. 
+
+When used in a 'shiny' application, 'ggiraph' lets you work with user interactions on graphic elements, legends, titles and ggplot theme elements; selection and hover are available as reactive values.
+
+:::
+
+::::
+
+## Coverage of ggplot2
+
+*Almost everything:*
+
+- 50 `geom` functions,
+- 98 `scale` functions,
+- some `guide` functions,
+- `element_line_interactive()`, `element_rect_interactive()`, `element_text_interactive()` to make themes interactive.
+
+
+## Example: ggplot code
+
+```{r echo = TRUE}
+library(ggiraph)
+p <- ggplot(dsmall, aes(x = price, y = depth, color = clarity)) 
+
+p <- p + geom_point_interactive(
+    aes(tooltip = color, data_id = color), 
+    size = 3,
+    hover_nearest = TRUE)
+
+p <- p + scale_color_viridis_d_interactive(
+  data_id = function(breaks) {
+    format(breaks)
+  },
+  tooltip = function(breaks) {
+    paste0("This is legend for ", breaks)
+  },
+  guide = "legend")
+```
+
+## Example: girafe code {.smaller}
+
+```{r echo=FALSE, results='asis'}
+cat("````markdown\n")
+cat(readLines("assets/markdown/girafe.Rmd"), sep = "\n")
+cat("````\n")
+```
+
+
+The three aesthetics supported by ggiraph are not aesthetics supported by ggplot2. They are implemented in the package and are only supported if the `girafe()` function is called.
+
+* `tooltip` : HTML tooltip to display
+* `data_id` : identifier for the animation and for shiny
+* `onclick` : JavaScript to be executed on click (rarely used).
+
+## Important
+
+
+::: {.callout-caution}
+
+By default, the size of the graphic is automatically adjusted to 100% of the width of its web container. The graphic will be resized if its container is resized. This behavior can be controlled and cancelled by using `opts_sizing(rescale = FALSE)`.
+
+:::
+
+::: {.callout-note}
+
+Use `hover_nearest = TRUE` to apply the hover effect to the nearest element when the mouse is moved, rather than to the element itself. In this case, you must also supply a `data_id` parameter.
+
+:::
+
+## Example: result
+
+```{r child="assets/markdown/girafe.Rmd"}
+```
+
+
+
+# ggiraph in 'shiny' apps {.smaller}
+
+The graphic is transformed into a reactive object and three reactive inputs are available: 
+
+- panel element selection, 
+- legend element selection,
+- theme element selection.
+
+Items associated with the `data_id` can be selected, and the selection (the value of the `data_id`) is available in the application `server`. 
+
+# Access the selections {.smaller}
+
+
+::: {.callout-caution}
+Selections will only be available if an aesthetic `data_id` has been defined.
+:::
+
+
+If the `girafeOutput()` has the identifier value `girafeid`, then the reactive values will be:
+
+* for selection of panel elements, the selected elements is in the reactive value `input$girafeid_selected` or `input$girafeid_hovered`,
+* for selection of legend elements, the selection is in the reactive value `input$girafeid_key_selected` or `input$girafeid_key_hovered`,
+* for selecting theme elements, the selection is in the reactive value `input$girafeid_theme_selected` or `input$girafeid_theme_hovered`.
+
+
+
+
+## App demo
+
+sources: <https://github.com/ardata-fr/municipales-paris/>
+
+shinyapps.io demo: <https://davidgohel.shinyapps.io/municipales-paris/>
+
+## <https://davidgohel.shinyapps.io/municipales-paris/>
+
+<iframe src="https://davidgohel.shinyapps.io/municipales-paris/" width="100%" height="550" data-external="1"></iframe>
+
+## Selection summary
+
+```{r eval=FALSE, echo=TRUE}
+output$summary <- renderGirafe({
+  girafe(ggobj = gg, ...)
+})
+
+observe({
+  if (isTruthy(input$summary_hovered)) {
+    session$sendCustomMessage(
+      type = 'summary_key_set',
+      message = input$summary_hovered
+    )
+  }
+})
+  
+nuance <- reactive({
+  req(input$summary_key_selected)
+  input$summary_key_selected
+})
+```
+
+# Fonts management
+
+Fonts are importants!
+
+
+## App demo
+
+sources: <https://github.com/ardata-fr/crime-demo/>
+
+shinyapps.io demo: <https://davidgohel.shinyapps.io/crimes/>
+
+## <https://davidgohel.shinyapps.io/crimes/>
+
+<iframe src="https://davidgohel.shinyapps.io/crimes/" width="100%" height="550" data-external="1"></iframe>
+
+
+## Key points {.smaller}
+
+To use a font, you need 3 settings:
+
+1. register the font so that you can use it
+2. specify with ggplot2 that the font must be used
+3. embed the font with the app !
+
+```{r eval=FALSE, echo=TRUE}
+# register liberation sans font
+# liberationsans is available with gdtools without internet access
+# we'll see how to use Google Fonts later
+gdtools::register_liberationsans() 
+
+output$summary <- renderGirafe({
+  gg <- ggplot(...) +
+      theme_void(base_family = "Liberation Sans")# use font Liberation Sans
+  
+  girafe(
+      ggobj = gg,
+      ...,
+      dependencies = list(
+         # embed liberation sans font into the shiny app
+        gdtools::liberationsansHtmlDependency()
+      )
+  )
+})
+```
+
+## Use google fonts with package 'gdtools'
+
+```{r eval=FALSE, echo=TRUE}
+# register the font to use it
+register_gfont("Ms Madi")
+
+# specify with ggplot2 that the font must be used
+ggplot2::theme_set(theme_minimal(base_family = "Ms Madi"))
+
+# embed the font with the app
+output$plot <- renderGirafe({
+  x <- girafe(
+    ...,
+    dependencies = list(
+      gfontHtmlDependency(family = "Ms Madi")
+    )
+  )
+  x
+})
+```
+
+## Using 'gdtools' with 'shinyapps.io' restrictions
+
+```{r eval=FALSE, echo=TRUE}
+library(gdtools)
+
+options(GDTOOLS_CACHE_DIR = "fonts")
+# run once so that you can send the font files on shinyapps.io
+if (!dir.exists(getOption("GDTOOLS_CACHE_DIR"))) {
+  dir.create(
+    getOption("GDTOOLS_CACHE_DIR"),
+    recursive = TRUE,
+    showWarnings = TRUE
+  )
+}
+
+register_gfont("Ms Madi")
+```
+
+# Resizing
+
+Resizing is often asked by users.
+
+A `girafe()` object will only auto-adjust to its container regarding
+width, not height.
+
+But you can enable manual resizing!
+
+## App demo
+
+sources: <https://github.com/ardata-fr/crime-resize-demo>
+
+shinyapps.io demo: <https://davidgohel.shinyapps.io/crimes-resize/>
+
+## <https://davidgohel.shinyapps.io/crimes-resize/>
+
+<iframe src="https://davidgohel.shinyapps.io/crimes-resize/" width="100%" height="550" data-external="1"></iframe>
+
+
+## file 'www/utils.js'
+
+```{js eval=FALSE, echo=TRUE}
+function observeChart(chartId, resizeInputId) {
+  const chart = document.getElementById(chartId);
+  if (!chart) {
+    return;
+  }
+  const resizeObserver = new ResizeObserver(entries => {
+    for (let entry of entries) {
+      const w = entry.contentRect.width;
+      const h = entry.contentRect.height;
+      if (typeof Shiny != "undefined" && typeof Shiny.onInputChange !== 'undefined') {
+        Shiny.onInputChange(resizeInputId, { width: w, height: h});
+      }
+    }
+  });
+  resizeObserver.observe(chart);
+}
+```
+
+## file 'global.R'
+
+
+```{r eval=FALSE, echo=TRUE}
+init_width <- 6
+init_height <- 5
+girafe_container_css <- sprintf(
+  "resize: both;overflow: auto;width: %.0fpx;height: %.0fpx;",
+  init_width*96,
+  init_height*96
+)
+```
+
+## file 'ui.R'
+
+```{r eval=FALSE, echo=TRUE}
+tags$script(src = "utils.js")
+
+div(
+  id = "girafe_container",
+  style = girafe_container_css,
+  girafeOutput("plot", width = NULL, height = NULL)
+)
+
+tags$script(sprintf(
+  "observeChart('girafe_container','plot_size');"
+))
+```
+
+## file 'server.R'
+
+```{r eval=FALSE, echo=TRUE}
+widthSVG <- reactiveVal(init_width)
+heightSVG <- reactiveVal(init_height)
+
+plotSize <- debounce(reactive(input$plot_size), millis = 500)
+
+observeEvent(plotSize(), {
+  if (isTruthy(plotSize()$width)) {
+    widthSVG(plotSize()$width/96)
+  }
+  if (isTruthy(plotSize()$height)) {
+    heightSVG(plotSize()$height/96)
+  }
+}, ignoreNULL = TRUE)
+
+output$plot <- renderGirafe({
+  girafe(
+    width_svg = widthSVG(),
+    height_svg = heightSVG(),
+    options = list(
+      opts_sizing(rescale = FALSE)
+    )
+  )
+})
+```
+
+
+# Thanks
+
+:::: {.columns}
+
+::: {.column width="60%"}
+
+A user guide is available at <https://ardata.fr/ggiraph-book/>
+
+'ggiraph' has also been written by Panagiotis Skintzos.
+
+:::
+
+::: {.column width="40%"}
+
+![](https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExdjFxMjBjd3ExMmF0YTg5dm1wMDN5NWw5ZXpnNXRoaG1iNmxlamNrdyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/yNrsYwHUYYALLeDd8V/giphy.gif)
+
+:::
+
+::::
+

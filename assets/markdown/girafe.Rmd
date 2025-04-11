@@ -1,0 +1,14 @@
+```{r fig.width=8, fig.height=4, echo = FALSE}
+girafe(
+  ggobj = p,
+  options = list(
+    opts_hover(css = "stroke:black;", nearest_distance = 50),
+    opts_hover_inv(css = "opacity:.15;"),
+    opts_toolbar(
+      position = "top", 
+      saveaspng = TRUE, 
+      pngname = "ggiraph"
+    )
+  )
+)
+```
